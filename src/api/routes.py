@@ -15,13 +15,15 @@ CORS(api)
 
 
 @api.route('/user', methods=['GET'])
-def handle_hello():
+def get_users():
 
-    response_body = {
-        "msg": "Hello, this is your GET /user response "
-    }
+    result = db.session.scalars(db.select(User)).all()
+    response_body = list(map(lambda item: item.serialize(),result))
 
-    return jsonify(response_body), 200
+    if response_body == []:
+        return jsonify({"msg":"there are no registered users"}), 404
+
+    return jsonify({"results":response_body}), 200
 
 @api.route('/signup', methods=['POST'])
 def signup():
@@ -40,19 +42,17 @@ def login():
 
     email = request.json.get("email", None)
     password = request.json.get("password", None)
+    try:
+        user = db.session.execute(db.select(User).filter_by(email=email)).scalar_one()
+        if password != user.password:
+            return jsonify({"msg": "Bad email or password"}), 401
+        access_token = create_access_token(identity=email)
+        return jsonify(access_token=access_token)
+    except:
+        return jsonify({"msg": "this user does not exist"}), 404
 
-    user = db.session.execute(db.select(User).filter_by(email=email)).scalar_one()
-    if email != user.email or password != user.password:
-        return jsonify({"msg": "Bad email or password"}), 401
-    access_token = create_access_token(identity=email)
-    return jsonify(access_token=access_token)
-
-
-# Protect a route with jwt_required, which will kick out requests
-# without a valid JWT present.
-@api.route("/favorites", methods=["GET"])
+@api.route("/private", methods=["GET"])
 @jwt_required()
-def favorites():
-    # Access the identity of the current user with get_jwt_identity
+def private():
     current_user = get_jwt_identity()
     return jsonify(logged_in_as=current_user), 200
