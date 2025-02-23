@@ -5,7 +5,8 @@ from flask import Flask, request, jsonify, url_for, Blueprint
 from api.models import db, User
 from api.utils import generate_sitemap, APIException
 from flask_cors import CORS
-from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
+from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required,verify_jwt_in_request
+from flask_jwt_extended.exceptions import NoAuthorizationError
 
 api = Blueprint('api', __name__)
 
@@ -56,3 +57,12 @@ def login():
 def private():
     current_user = get_jwt_identity()
     return jsonify(logged_in_as=current_user), 200
+
+@api.route("/verify-token", methods=["GET"])
+def verify_token():
+    try:
+        verify_jwt_in_request()  # Verifica la validez del token
+        identity = get_jwt_identity()  # Obtiene el usuario del token
+        return jsonify({"valid": True, "user": identity}), 200
+    except NoAuthorizationError:
+        return jsonify({"valid": False, "message": "Token inválido o no proporcionado"}), 401
